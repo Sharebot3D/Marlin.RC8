@@ -619,6 +619,7 @@ float cartes[XYZ] = { 0 };
   volatile bool detect_filament = false;
   volatile float detect_filament_factor = 1.0;
   volatile float fd_count = 0;
+  volatile bool fd_counter_enabled = true;
 #endif
 
 #if ENABLED(MIXING_EXTRUDER)
@@ -2988,6 +2989,9 @@ void unknown_command_error() {
         default:
           break;
       }
+#if ENABLED(USE_EXTERNAL_CLICK)
+      sendM613Status( false );
+#endif
     }
     next_busy_signal_ms = ms + host_keepalive_interval * 1000UL;
   }
@@ -4705,7 +4709,8 @@ inline void gcode_G92() {
       if (!hasP && !hasS && *args != '\0')
         lcd_setstatus(args, true);
       else {
-        LCD_MESSAGEPGM(MSG_USERWAIT);
+        //LCD_MESSAGEPGM(MSG_USERWAIT);
+        LCD_MESSAGEPGMSL(MSG_USERWAIT, 2);
         #if ENABLED(LCD_PROGRESS_BAR) && PROGRESS_MSG_EXPIRE > 0
           dontExpireStatus();
         #endif
@@ -4745,6 +4750,7 @@ inline void gcode_G92() {
       #endif
     }
 
+    lcd_reset_alert_level();
     wait_for_user = false;
     #ifdef USE_EXTERNAL_CLICK
     sendM613Click( false );
@@ -7321,6 +7327,12 @@ inline void gcode_M503() {
       return;
     }
 
+    #if ENABLED(FILAMENT_RUNOUT_SENSOR)
+      #if ENABLED(FILAMENT_DETECTION_COUNTER)
+        fd_counter_enabled = false;
+      #endif
+    #endif
+    
     // Show initial message and wait for synchronize steppers
     lcd_filament_change_show_message(FILAMENT_CHANGE_MESSAGE_INIT);
     stepper.synchronize();
@@ -7406,7 +7418,8 @@ inline void gcode_M503() {
     wait_for_user = true;
 
     #if ENABLED(USE_EXTERNAL_CLICK)
-      LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_EXT_CLICK);
+      //LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_EXT_CLICK);
+      LCD_MESSAGEPGMSL(MSG_FILAMENT_CHANGE_EXT_CLICK, 2);
       sendM613Click( true );
     #endif
 
@@ -7422,6 +7435,7 @@ inline void gcode_M503() {
     }
 
     #if ENABLED(USE_EXTERNAL_CLICK)
+      lcd_reset_alert_level();
       sendM613Click( false );
     #endif
 
@@ -7457,7 +7471,8 @@ inline void gcode_M503() {
       wait_for_user = true;
   
       #if ENABLED(USE_EXTERNAL_CLICK)
-        LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_LOAD_CLICK);
+        //LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_LOAD_CLICK);
+        LCD_MESSAGEPGMSL(MSG_FILAMENT_CHANGE_LOAD_CLICK, 2);
         sendM613Click( true );
       #endif
 
@@ -7470,7 +7485,8 @@ inline void gcode_M503() {
 
           now = millis();
           if (ELAPSED(now, extrusion_stop_time)){
-            LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_EXT_STOPPED);
+            //LCD_MESSAGEPGM(MSG_FILAMENT_CHANGE_EXT_STOPPED);
+              LCD_MESSAGEPGMSL(MSG_FILAMENT_CHANGE_EXT_STOPPED, 2);
             #if ENABLED(USE_EXTERNAL_CLICK)
               sendM613Click( true );
             #endif
@@ -7481,6 +7497,7 @@ inline void gcode_M503() {
         idle(true);
       }
 
+      lcd_reset_alert_level();
       #if ENABLED(USE_EXTERNAL_CLICK)
         sendM613Click( false );
       #endif
@@ -7527,6 +7544,9 @@ inline void gcode_M503() {
 
     #if ENABLED(FILAMENT_RUNOUT_SENSOR)
       filament_ran_out = false;
+      #if ENABLED(FILAMENT_DETECTION_COUNTER)
+        fd_counter_enabled = true;
+      #endif
     #endif
 
     // Show status screen
@@ -10171,6 +10191,9 @@ void prepare_move_to_destination() {
       #endif
     ) {
       filament_ran_out = true;
+      #if ENABLED(FILAMENT_DETECTION_COUNTER)
+        fd_counter_enabled = false;
+      #endif
       enqueue_and_echo_commands_P(PSTR(FILAMENT_RUNOUT_SCRIPT));
       SERIAL_ECHO_START;
       SERIAL_ECHOLNPGM("Forced M600 from filament detection");
