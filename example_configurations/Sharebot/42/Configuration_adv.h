@@ -268,6 +268,7 @@
 
   #if ENABLED(Y_DUAL_ENDSTOPS)
     #define Y2_USE_ENDSTOP _YMIN_
+    #define Y_DUAL_AUTOHOME_TIMEOUT 1000
   #endif
 
 #endif
@@ -292,6 +293,7 @@
 
   #if ENABLED(Z_DUAL_ENDSTOPS)
     #define Z2_USE_ENDSTOP _XMAX_
+    #define Z_DUAL_AUTOHOME_TIMEOUT 1000
   #endif
 
 #endif // Z_DUAL_STEPPER_DRIVERS
