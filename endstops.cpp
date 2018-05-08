@@ -194,6 +194,64 @@ void Endstops::report_state() {
 } // Endstops::report_state
 
 void Endstops::M119() {
+  if( code_seen('Q') ){
+    SERIAL_ECHO_START;
+    SERIAL_ECHOPGM("M119:");
+    #if HAS_X_MIN
+      SERIAL_ECHO(((READ(X_MIN_PIN)^X_MIN_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_X_MAX
+      SERIAL_ECHO(((READ(X_MAX_PIN)^X_MAX_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Y_MIN
+      SERIAL_ECHO(((READ(Y_MIN_PIN)^Y_MIN_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Y2_MIN
+      SERIAL_ECHO(((READ(Y2_MIN_PIN)^Y2_MIN_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Y_MAX
+      SERIAL_ECHO(((READ(Y_MAX_PIN)^Y_MAX_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Y2_MAX
+      SERIAL_ECHO(((READ(Y2_MAX_PIN)^Y2_MAX_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Z_MIN
+      SERIAL_ECHO(((READ(Z_MIN_PIN)^Z_MIN_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Z2_MIN
+      SERIAL_ECHO(((READ(Z2_MIN_PIN)^Z2_MIN_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Z_MAX
+      SERIAL_ECHO(((READ(Z_MAX_PIN)^Z_MAX_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if HAS_Z2_MAX
+      SERIAL_ECHO(((READ(Z2_MAX_PIN)^Z2_MAX_ENDSTOP_INVERTING) ? '1' : '0'));
+    #else
+      SERIAL_ECHO('0');
+    #endif
+    #if ENABLED(Z_MIN_PROBE_ENDSTOP)
+      SERIAL_ECHO(((READ(Z_MIN_PROBE_PIN)^Z_MIN_PROBE_ENDSTOP_INVERTING) ? '1' : '0'));
+    #endif
+    SERIAL_EOL;
+  } else {
   SERIAL_PROTOCOLLNPGM(MSG_M119_REPORT);
   #if HAS_X_MIN
     SERIAL_PROTOCOLPGM(MSG_X_MIN);
@@ -239,17 +297,38 @@ void Endstops::M119() {
     SERIAL_PROTOCOLPGM(MSG_Z_PROBE);
     SERIAL_PROTOCOLLN(((READ(Z_MIN_PROBE_PIN)^Z_MIN_PROBE_ENDSTOP_INVERTING) ? MSG_ENDSTOP_HIT : MSG_ENDSTOP_OPEN));
   #endif
+  }
 } // Endstops::M119
 
 #if ENABLED(Z_DUAL_ENDSTOPS)
 
+  #ifdef Z_DUAL_AUTOHOME_TIMEOUT
+    #define Z_DUAL_TIMEOUT_EXPIRED ((dual_z_first_hit_time > 0) && (millis() - dual_z_first_hit_time >= Z_DUAL_AUTOHOME_TIMEOUT))
+  #else
+    #define Z_DUAL_TIMEOUT_EXPIRED 0
+  #endif
+  
   // Pass the result of the endstop test
   void Endstops::test_dual_z_endstops(const EndstopEnum es1, const EndstopEnum es2) {
+    static unsigned long dual_z_first_hit_time;
     byte z_test = TEST_ENDSTOP(es1) | (TEST_ENDSTOP(es2) << 1); // bit 0 for Z, bit 1 for Z2
     if (z_test && stepper.current_block->steps[Z_AXIS] > 0) {
+      bool z_before = TEST(endstop_hit_bits, Z_MIN);
       SBI(endstop_hit_bits, Z_MIN);
-      if (!stepper.performing_homing || (z_test == 0x3))  //if not performing home or if both endstops were trigged during homing...
+      if (!stepper.performing_homing || (z_test == 0x3) || Z_DUAL_TIMEOUT_EXPIRED){  //if not performing home or if both endstops were trigged during homing... or homing timeout (with error)
+        dual_z_first_hit_time = 0;
         stepper.kill_current_block();
+        if (stepper.performing_homing && (z_test != 0x3) ){
+          SERIAL_ECHO_START;
+          SERIAL_ECHOPGM("G28 timeout. Endstops Z = ");
+          SERIAL_ECHO((TEST(z_test,0)==0)?MSG_ENDSTOP_OPEN:MSG_ENDSTOP_HIT);
+          SERIAL_ECHOPGM(" - ");
+          SERIAL_ECHOLN((TEST(z_test,1)==0)?MSG_ENDSTOP_OPEN:MSG_ENDSTOP_HIT);
+          kill(PSTR("Homing Error Z"));
+        }
+      } else if (!z_before){
+        dual_z_first_hit_time = millis();
+      }
     }
   }
 
@@ -257,13 +336,33 @@ void Endstops::M119() {
 
 #if ENABLED(Y_DUAL_ENDSTOPS)
 
+  #ifdef Y_DUAL_AUTOHOME_TIMEOUT
+    #define Y_DUAL_TIMEOUT_EXPIRED ((dual_y_first_hit_time > 0) && (millis() - dual_y_first_hit_time >= Y_DUAL_AUTOHOME_TIMEOUT))
+  #else
+    #define Y_DUAL_TIMEOUT_EXPIRED 0
+  #endif
+  
   // Pass the result of the endstop test
   void Endstops::test_dual_y_endstops(const EndstopEnum es1, const EndstopEnum es2) {
+    static unsigned long dual_y_first_hit_time;
     byte y_test = TEST_ENDSTOP(es1) | (TEST_ENDSTOP(es2) << 1); // bit 0 for Y, bit 1 for Y2
     if (y_test && stepper.current_block->steps[Y_AXIS] > 0) {
+      bool y_before = TEST(endstop_hit_bits, Y_MIN);
       SBI(endstop_hit_bits, Y_MIN);
-      if (!stepper.performing_homing || (y_test == 0x3))  //if not performing home or if both endstops were trigged during homing...
+      if (!stepper.performing_homing || (y_test == 0x3) || Y_DUAL_TIMEOUT_EXPIRED){  //if not performing home or if both endstops were trigged during homing... or homing timeout (with error)
+        dual_y_first_hit_time = 0;
         stepper.kill_current_block();
+        if (stepper.performing_homing && (y_test != 0x3) ){
+          SERIAL_ECHO_START;
+          SERIAL_ECHOPGM("G28 timeout. Endstops Y = ");
+          SERIAL_ECHO((TEST(y_test,0)==0)?MSG_ENDSTOP_OPEN:MSG_ENDSTOP_HIT);
+          SERIAL_ECHOPGM(" - ");
+          SERIAL_ECHOLN((TEST(y_test,1)==0)?MSG_ENDSTOP_OPEN:MSG_ENDSTOP_HIT);
+          kill(PSTR("Homing Error Y"));
+        }
+      } else if (!y_before){
+        dual_y_first_hit_time = millis();
+      }
     }
   }
 
