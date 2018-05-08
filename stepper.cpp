@@ -126,6 +126,7 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 #if ENABLED(FILAMENT_DETECTION_COUNTER)
   extern volatile float fd_count;
   extern volatile bool detect_filament;
+  extern volatile bool fd_counter_enabled;
 #endif
   
 #if ENABLED(X_DUAL_STEPPER_DRIVERS)
@@ -744,7 +745,7 @@ void Stepper::isr() {
 
   //FILAMENT DETECTION: counter reset
   #if ENABLED(FILAMENT_DETECTION_COUNTER)
-    if (READ(FIL_RUNOUT_PIN) != FIL_RUNOUT_INVERTING){
+    if ( (READ(FIL_RUNOUT_PIN) != FIL_RUNOUT_INVERTING) || (fd_counter_enabled == false) ){
         fd_count = 0;
     }
   #endif
@@ -753,7 +754,7 @@ void Stepper::isr() {
   if (all_steps_done) {
 
     #if ENABLED(FILAMENT_DETECTION_COUNTER)
-      if (detect_filament){ // && (forder_M600 == false) ??
+      if ( detect_filament && (fd_counter_enabled == true) ){
         if (READ(FIL_RUNOUT_PIN) == FIL_RUNOUT_INVERTING){
           fd_count += count_direction[E_AXIS] * current_block->steps[E_AXIS];
         } else {
