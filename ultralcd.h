@@ -69,6 +69,7 @@
   #endif
 
   #define LCD_MESSAGEPGM(x) lcd_setstatuspgm(PSTR(x))
+  #define LCD_MESSAGEPGMSL(x, l) lcd_setstatuspgm(PSTR(x), l)
   #define LCD_ALERTMESSAGEPGM(x) lcd_setalertstatuspgm(PSTR(x))
 
   #define LCD_UPDATE_INTERVAL 100
