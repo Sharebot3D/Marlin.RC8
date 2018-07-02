@@ -548,6 +548,9 @@ void Config_Postprocess() {
           thermalManager.bedKp = dummy;
           EEPROM_READ(thermalManager.bedKi);
           EEPROM_READ(thermalManager.bedKd);
+        } else {
+            EEPROM_READ(dummy); // bedKi
+            EEPROM_READ(dummy); // bedKd
         }
       #else
         for (uint8_t q=3; q--;) EEPROM_READ(dummy); // bedKp, bedKi, bedKd
