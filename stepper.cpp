@@ -756,7 +756,7 @@ void Stepper::isr() {
     #if ENABLED(FILAMENT_DETECTION_COUNTER)
       if ( detect_filament && (fd_counter_enabled == true) ){
         if (READ(FIL_RUNOUT_PIN) == FIL_RUNOUT_INVERTING){
-          fd_count += count_direction[E_AXIS] * current_block->steps[E_AXIS];
+          fd_count += count_direction[E_AXIS] * current_block->steps[E_AXIS] * planner.steps_to_mm[E_AXIS] * 100;
         } else {
           fd_count = 0; // potrebbe essere superfluo
         }

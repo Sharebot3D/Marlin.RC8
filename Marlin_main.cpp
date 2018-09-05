@@ -7837,6 +7837,13 @@ inline void gcode_M71() {
 inline void gcode_M990() {
   
   stepper.synchronize();
+  bool no_move = false;
+
+  LOOP_XYZ(i){
+    if (!axis_known_position[i]){
+      no_move = true;
+    }
+  }
 
   // Save current position of all axes
   LOOP_XYZE(i)
@@ -7859,24 +7866,29 @@ inline void gcode_M990() {
     #endif
   ;
 
-  if (z_lift > 0) {
-    destination[Z_AXIS] += z_lift;
-    NOMORE(destination[Z_AXIS], Z_MAX_POS);
-    line_to_destination(PAUSERESUME_Z_FEEDRATE);
+  // Don't move without homing first
+  if (!no_move){
+
+	  if (z_lift > 0) {
+	    destination[Z_AXIS] += z_lift;
+	    NOMORE(destination[Z_AXIS], Z_MAX_POS);
+	    line_to_destination(PAUSERESUME_Z_FEEDRATE);
+	  }
+	
+	  // Move XY axes to parking position
+	  if (code_seen('X')) destination[X_AXIS] = code_value_axis_units(X_AXIS);
+	  #ifdef PAUSERESUME_X_POS
+	    else destination[X_AXIS] = PAUSERESUME_X_POS;
+	  #endif
+	
+	  if (code_seen('Y')) destination[Y_AXIS] = code_value_axis_units(Y_AXIS);
+	  #ifdef PAUSERESUME_Y_POS
+	    else destination[Y_AXIS] = PAUSERESUME_Y_POS;
+	  #endif
+	
+	  line_to_destination(PAUSERESUME_XY_FEEDRATE);
+
   }
-
-  // Move XY axes to parking position
-  if (code_seen('X')) destination[X_AXIS] = code_value_axis_units(X_AXIS);
-  #ifdef PAUSERESUME_X_POS
-    else destination[X_AXIS] = PAUSERESUME_X_POS;
-  #endif
-
-  if (code_seen('Y')) destination[Y_AXIS] = code_value_axis_units(Y_AXIS);
-  #ifdef PAUSERESUME_Y_POS
-    else destination[Y_AXIS] = PAUSERESUME_Y_POS;
-  #endif
-
-  line_to_destination(PAUSERESUME_XY_FEEDRATE);
 
   stepper.synchronize();
 
